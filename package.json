@@ -1,0 +1,16 @@
+{
+  "name": "ios-markdown-table-formatter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "table-formatter.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.25.3",
+    "typescript": "^5.8.3"
+  }
+}
