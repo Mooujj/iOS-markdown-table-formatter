@@ -2,25 +2,43 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Markdown Table Formatter</title>
+    <title>Markdown Table Formatter (Debug)</title>
   </head>
   <body>
-    <script src="dist/table-formatter.js"></script>
+    <pre id="output">Loading…</pre>
+
+    <!-- 1) First log that runner.html loaded -->
     <script>
-      // grab the raw table from ?md=…
+      console.log("🚀 runner.html loaded");
+    </script>
+
+    <!-- 2) Load your bundled formatter -->
+    <script src="dist/table-formatter.js"></script>
+
+    <!-- 3) Run the formatting, with full logging -->
+    <script>
+      console.log("🛠 formatTable is", window.formatTable);
+
+      // Grab raw MD from ?md=
       const params = new URLSearchParams(location.search);
-      const rawTable = decodeURIComponent(params.get("md") || "");
+      const raw = decodeURIComponent(params.get("md") || "");
+      console.log("📥 raw input:", raw);
 
-      // format it
-      const output = window.formatTable(rawTable);
+      let formatted;
+      try {
+        formatted = window.formatTable(raw);
+        console.log("📤 formatted output:", formatted);
+      } catch (err) {
+        console.error("❌ formatting error:", err);
+        formatted = "Error: " + err.message;
+      }
 
-      // if we're in Shortcuts, send it back; otherwise show it in the browser
+      // If Shortcuts calls us, hand back via completion()
       if (typeof completion === "function") {
-        completion(output);
+        completion(formatted);
       } else {
-        // desktop/Fx fallback:
-        document.body.style.whiteSpace = "pre";
-        document.body.textContent = output;
+        // Otherwise show in the page
+        document.getElementById("output").textContent = formatted;
       }
     </script>
   </body>
