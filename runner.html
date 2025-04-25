@@ -15,7 +15,7 @@
     <!-- 2) Load your bundled formatter -->
     <script src="dist/table-formatter.js"></script>
 
-    <!-- 3) Run the formatting, with full logging -->
+    <!-- 3) Run the formatting, then copy to clipboard -->
     <script>
       console.log("🛠 formatTable is", window.formatTable);
 
@@ -33,12 +33,24 @@
         formatted = "Error: " + err.message;
       }
 
+      // 🚀 Automatically copy to clipboard if supported
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard
+          .writeText(formatted)
+          .then(() => console.log("✅ Copied to clipboard"))
+          .catch((err) => console.error("⚠️ Clipboard write failed:", err));
+      } else {
+        console.warn("📋 Clipboard API not available");
+      }
+
       // If Shortcuts calls us, hand back via completion()
       if (typeof completion === "function") {
         completion(formatted);
       } else {
         // Otherwise show in the page
-        document.getElementById("output").textContent = formatted;
+        const out = document.getElementById("output");
+        out.style.whiteSpace = "pre";
+        out.textContent = formatted;
       }
     </script>
   </body>
