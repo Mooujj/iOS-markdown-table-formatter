@@ -1,1 +1,1 @@
-"# iOS-markdown-table-formatter" 
+# iOS-markdown-table-formatter

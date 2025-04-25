@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://<you>.github.io/markdown-table-formatter/table-formatter.js"></script>
+  </head>
+  <body>
+    <script>
+      // Grab the input (percent-escaped) from the URL
+      const qs = new URLSearchParams(location.search);
+      const raw = decodeURIComponent(qs.get("md") || "");
+      // Format it and send it back to Shortcuts
+      completion(window.formatTable(raw));
+    </script>
+  </body>
+</html>
