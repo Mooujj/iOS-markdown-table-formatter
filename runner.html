@@ -2,13 +2,26 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <script src="dist/table-formatter.js"></script>
+    <title>Markdown Table Formatter</title>
   </head>
   <body>
+    <script src="dist/table-formatter.js"></script>
     <script>
+      // grab the raw table from ?md=…
       const params = new URLSearchParams(location.search);
-      const md = decodeURIComponent(params.get("md") || "");
-      completion(window.formatTable(md));
+      const rawTable = decodeURIComponent(params.get("md") || "");
+
+      // format it
+      const output = window.formatTable(rawTable);
+
+      // if we're in Shortcuts, send it back; otherwise show it in the browser
+      if (typeof completion === "function") {
+        completion(output);
+      } else {
+        // desktop/Fx fallback:
+        document.body.style.whiteSpace = "pre";
+        document.body.textContent = output;
+      }
     </script>
   </body>
 </html>
