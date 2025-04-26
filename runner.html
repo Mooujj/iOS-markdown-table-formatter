@@ -10,76 +10,73 @@
     <script>
       // 1) grab raw MD
       const params = new URLSearchParams(location.search);
-      let raw = decodeURIComponent(params.get("md")||"");
+      let raw = decodeURIComponent(params.get("md") || "");
 
-      // 2) normalize Details multi-line into one cell
+      // 2) deterministic merge of Details block
       const FIELD_KEYS = new Set([
-        "Reminder Title:", "Details:", "Link:", "List:", "Tags:", "Due Date:",
-        "Alerts:", "Location:", "Priority:", "Flagged:", "Completed:",
-        "Date Completed:", "Parent Task:", "Includes Subtasks:", "Subtasks:",
-        "Images:", "File Path:", "File Type:", "File Size:",
-        "Date Created:", "Date Modified:"
+        "Reminder Title:",
+        "Details:",
+        "Link:",
+        "List:",
+        "Tags:",
+        "Due Date:",
+        "Alerts:",
+        "Location:",
+        "Priority:",
+        "Flagged:",
+        "Completed:",
+        "Date Completed:",
+        "Parent Task:",
+        "Includes Subtasks:",
+        "Subtasks:",
+        "Images:",
+        "File Path:",
+        "File Type:",
+        "File Size:",
+        "Date Created:",
+        "Date Modified:",
       ]);
 
-      const lines = raw.split(/\r?\n/);
-      let merging = false;
-      const merged = [];
+      // split into lines
+      let lines = raw.split(/\r?\n/);
 
-      for (let line of lines) {
-        // pull out first & second cell:
-        const m = line.match(/^\|\s*(.*?)\s*\|\s*(.*?)(?:\||$)/);
-        if (!m) {
-          // not a table row, just append
-          merged.push(line);
-          continue;
-        }
-        const first  = m[1].trim();
-        const second = m[2];
+      // find the index of the Details row
+      let idx = lines.findIndex((l) => /^\|\s*Details:\s*\|/.test(l));
+      if (idx !== -1) {
+        let mergedDetail = [];
 
-        if (first === "Details:") {
-          // start merging mode
-          merging = true;
-          merged.push(line);
-        }
-        else if (merging) {
-          // if this first cell is a new field name, stop merging
-          if (FIELD_KEYS.has(first)) {
-            merging = false;
-            merged.push(line);
-          } else {
-            // continuation of Details → append with <br>
-            merged[merged.length - 1] += "<br>" + second;
+        // look ahead to collect all lines to merge
+        let i = idx + 1;
+        for (; i < lines.length; i++) {
+          // extract first cell
+          let m = lines[i].match(/^\|\s*(.*?)\s*\|/);
+          let key = m ? m[1].trim() : null;
+          if (key && FIELD_KEYS.has(key)) {
+            // hit the next real header → stop merging
+            break;
+          }
+          // otherwise it’s a continuation line: grab its second cell
+          let m2 = lines[i].match(/^\|\s*.*?\|\s*(.*?)(?:\||$)/);
+          if (m2) {
+            mergedDetail.push(m2[1].trim());
           }
         }
-        else {
-          merged.push(line);
+
+        if (mergedDetail.length) {
+          // append to the original Details line
+          // remove trailing '|' and whitespace
+          lines[idx] =
+            lines[idx].replace(/\|\s*$/, "") +
+            "<br>" +
+            mergedDetail.join("<br>") +
+            " |";
+          // remove the merged lines from the array
+          lines.splice(idx + 1, mergedDetail.length);
         }
       }
 
-      raw = merged.join("\n");
+      raw = lines.join("\n");
       console.log("🔄 normalized input:", raw);
-
-      // 3) format it
-      let formatted;
-      try {
-        formatted = window.formatTable(raw);
-      } catch (err) {
-        formatted = "Error: " + err.message;
-      }
-
-      // 4) copy to clipboard if possible
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(formatted).catch(() => {});
-      }
-
-      // 5) return to Shortcuts or show on‐screen
-      if (typeof completion === "function") {
-        completion(formatted);
-      } else {
-        const out = document.getElementById("output");
-        out.style.whiteSpace = "pre";
-        out.textContent = formatted;
-      }
     </script>
   </body>
 </html>
