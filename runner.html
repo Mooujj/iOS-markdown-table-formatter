@@ -2,28 +2,45 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Markdown Table Formatter (Debug)</title>
+    <title>Markdown Table Formatter (Debug + Multiline Merge)</title>
   </head>
   <body>
     <pre id="output">Loading…</pre>
 
-    <!-- 1) First log that runner.html loaded -->
     <script>
       console.log("🚀 runner.html loaded");
     </script>
 
-    <!-- 2) Load your bundled formatter -->
     <script src="dist/table-formatter.js"></script>
 
-    <!-- 3) Run the formatting, then copy to clipboard -->
     <script>
       console.log("🛠 formatTable is", window.formatTable);
 
-      // Grab raw MD from ?md=
+      // 1) Grab raw MD from ?md=
       const params = new URLSearchParams(location.search);
-      const raw = decodeURIComponent(params.get("md") || "");
+      let raw = decodeURIComponent(params.get("md") || "");
       console.log("📥 raw input:", raw);
 
+      // 2) Merge any rows where the first cell is empty into the previous row
+      const lines = raw.split(/\r?\n/);
+      const merged = [];
+      for (let line of lines) {
+        // match a simple two-column row: | first | second |
+        const m = line.match(/^\|\s*(.*?)\s*\|\s*(.*?)\s*(\|.*)?$/);
+        if (m && m[1] === "" && merged.length) {
+          // this line's first cell is blank → append its detail to last merged line
+          // strip leading '|' and any trailing '|'
+          const detail = m[2];
+          // add a <br> for the line break
+          merged[merged.length - 1] += "<br>" + detail;
+        } else {
+          merged.push(line);
+        }
+      }
+      raw = merged.join("\n");
+      console.log("🔄 normalized input:", raw);
+
+      // 3) Format it
       let formatted;
       try {
         formatted = window.formatTable(raw);
@@ -33,21 +50,20 @@
         formatted = "Error: " + err.message;
       }
 
-      // 🚀 Automatically copy to clipboard if supported
+      // 4) Attempt auto-copy
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard
           .writeText(formatted)
           .then(() => console.log("✅ Copied to clipboard"))
-          .catch((err) => console.error("⚠️ Clipboard write failed:", err));
+          .catch((err) => console.warn("⚠️ Clipboard write failed:", err));
       } else {
         console.warn("📋 Clipboard API not available");
       }
 
-      // If Shortcuts calls us, hand back via completion()
+      // 5) Return to Shortcuts or show on screen
       if (typeof completion === "function") {
         completion(formatted);
       } else {
-        // Otherwise show in the page
         const out = document.getElementById("output");
         out.style.whiteSpace = "pre";
         out.textContent = formatted;
