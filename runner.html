@@ -1,66 +1,85 @@
-<script>
-  // 1) grab raw MD
-  const params = new URLSearchParams(location.search);
-  let raw = decodeURIComponent(params.get("md") || "");
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Markdown Table Formatter (Multiline Details Merge)</title>
+  </head>
+  <body>
+    <pre id="output">Loading…</pre>
+    <script src="dist/table-formatter.js"></script>
+    <script>
+      // 1) grab raw MD
+      const params = new URLSearchParams(location.search);
+      let raw = decodeURIComponent(params.get("md")||"");
 
-  // 2) normalize Details multi-line into one cell
-  const FIELD_KEYS = new Set([
-    "Reminder Title:",
-    "Details:",
-    "Link:",
-    "List:",
-    "Tags:",
-    "Due Date:",
-    "Alerts:",
-    "Location:",
-    "Priority:",
-    "Flagged:",
-    "Completed:",
-    "Date Completed:",
-    "Parent Task:",
-    "Includes Subtasks:",
-    "Subtasks:",
-    "Images:",
-    "File Path:",
-    "File Type:",
-    "File Size:",
-    "Date Created:",
-    "Date Modified:",
-  ]);
+      // 2) normalize Details multi-line into one cell
+      const FIELD_KEYS = new Set([
+        "Reminder Title:", "Details:", "Link:", "List:", "Tags:", "Due Date:",
+        "Alerts:", "Location:", "Priority:", "Flagged:", "Completed:",
+        "Date Completed:", "Parent Task:", "Includes Subtasks:", "Subtasks:",
+        "Images:", "File Path:", "File Type:", "File Size:",
+        "Date Created:", "Date Modified:"
+      ]);
 
-  const lines = raw.split(/\r?\n/);
-  let merging = false;
-  const merged = [];
+      const lines = raw.split(/\r?\n/);
+      let merging = false;
+      const merged = [];
 
-  for (let line of lines) {
-    // pull out first & second cell:
-    const m = line.match(/^\|\s*(.*?)\s*\|\s*(.*?)(?:\||$)/);
-    if (!m) {
-      // not a table row, just append
-      merged.push(line);
-      continue;
-    }
-    const first = m[1].trim();
-    const second = m[2];
+      for (let line of lines) {
+        // pull out first & second cell:
+        const m = line.match(/^\|\s*(.*?)\s*\|\s*(.*?)(?:\||$)/);
+        if (!m) {
+          // not a table row, just append
+          merged.push(line);
+          continue;
+        }
+        const first  = m[1].trim();
+        const second = m[2];
 
-    if (first === "Details:") {
-      // start merging mode
-      merging = true;
-      merged.push(line);
-    } else if (merging) {
-      // if this first cell is a new field name, stop merging
-      if (FIELD_KEYS.has(first)) {
-        merging = false;
-        merged.push(line);
-      } else {
-        // continuation of Details → append with <br>
-        merged[merged.length - 1] += "<br>" + second;
+        if (first === "Details:") {
+          // start merging mode
+          merging = true;
+          merged.push(line);
+        }
+        else if (merging) {
+          // if this first cell is a new field name, stop merging
+          if (FIELD_KEYS.has(first)) {
+            merging = false;
+            merged.push(line);
+          } else {
+            // continuation of Details → append with <br>
+            merged[merged.length - 1] += "<br>" + second;
+          }
+        }
+        else {
+          merged.push(line);
+        }
       }
-    } else {
-      merged.push(line);
-    }
-  }
 
-  raw = merged.join("\n");
-  console.log("🔄 normalized input:", raw);
-</script>
+      raw = merged.join("\n");
+      console.log("🔄 normalized input:", raw);
+
+      // 3) format it
+      let formatted;
+      try {
+        formatted = window.formatTable(raw);
+      } catch (err) {
+        formatted = "Error: " + err.message;
+      }
+
+      // 4) copy to clipboard if possible
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(formatted).catch(() => {});
+      }
+
+      // 5) return to Shortcuts or show on‐screen
+      if (typeof completion === "function") {
+        completion(formatted);
+      } else {
+        const out = document.getElementById("output");
+        out.style.whiteSpace = "pre";
+        out.textContent = formatted;
+      }
+    </script>
+  </body>
+</html>
