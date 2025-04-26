@@ -2,65 +2,64 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Markdown Table Formatter (Debug + Multiline Merge)</title>
+    <title>Markdown Table Formatter (Multiline Details Merge)</title>
   </head>
   <body>
     <pre id="output">Loading…</pre>
-
-    <script>
-      console.log("🚀 runner.html loaded");
-    </script>
-
     <script src="dist/table-formatter.js"></script>
-
     <script>
-      console.log("🛠 formatTable is", window.formatTable);
-
-      // 1) Grab raw MD from ?md=
+      // 1) grab raw MD
       const params = new URLSearchParams(location.search);
       let raw = decodeURIComponent(params.get("md") || "");
-      console.log("📥 raw input:", raw);
 
-      // 2) Merge any rows where the first cell is empty into the previous row
+      // 2) merge only everything under the "Details:" row
       const lines = raw.split(/\r?\n/);
+      let merging = false;
       const merged = [];
       for (let line of lines) {
-        // match a simple two-column row: | first | second |
-        const m = line.match(/^\|\s*(.*?)\s*\|\s*(.*?)\s*(\|.*)?$/);
-        if (m && m[1] === "" && merged.length) {
-          // this line's first cell is blank → append its detail to last merged line
-          // strip leading '|' and any trailing '|'
-          const detail = m[2];
-          // add a <br> for the line break
-          merged[merged.length - 1] += "<br>" + detail;
+        // pull out first and second cell
+        const m = line.match(/^\|\s*(.*?)\s*\|\s*(.*?)\s*(?:\||$)/);
+        if (!m) {
+          merged.push(line);
+          continue;
+        }
+        const first = m[1].trim();
+        const second = m[2];
+
+        if (first === "Details:") {
+          // start the merge mode
+          merging = true;
+          merged.push(line);
+        } else if (merging) {
+          // if this row looks like a *new* header, stop merging
+          if (first.endsWith(":") && first !== "Details:") {
+            merging = false;
+            merged.push(line);
+          } else {
+            // continuation (blank first cell, bullets, or plain text)
+            // append with a <br>
+            merged[merged.length - 1] += "<br>" + second;
+          }
         } else {
           merged.push(line);
         }
       }
       raw = merged.join("\n");
-      console.log("🔄 normalized input:", raw);
 
-      // 3) Format it
+      // 3) format it
       let formatted;
       try {
         formatted = window.formatTable(raw);
-        console.log("📤 formatted output:", formatted);
       } catch (err) {
-        console.error("❌ formatting error:", err);
         formatted = "Error: " + err.message;
       }
 
-      // 4) Attempt auto-copy
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard
-          .writeText(formatted)
-          .then(() => console.log("✅ Copied to clipboard"))
-          .catch((err) => console.warn("⚠️ Clipboard write failed:", err));
-      } else {
-        console.warn("📋 Clipboard API not available");
+      // 4) copy to clipboard if possible
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(formatted).catch(() => {});
       }
 
-      // 5) Return to Shortcuts or show on screen
+      // 5) return to Shortcuts or show on‐screen
       if (typeof completion === "function") {
         completion(formatted);
       } else {
