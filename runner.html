@@ -2,74 +2,53 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Markdown Table Formatter (Multiline Details Merge)</title>
+    <title>Markdown Table Formatter (Continued Lines Merge)</title>
   </head>
   <body>
     <pre id="output">Loading…</pre>
-
-    <!-- 1) Your formatter bundle -->
     <script src="dist/table-formatter.js"></script>
-
     <script>
-      // —————————————————————————————————————————————
-      // 2) Grab & normalize the raw table text
-      // —————————————————————————————————————————————
-
+      // 1) grab raw MD
       const params = new URLSearchParams(location.search);
       let raw = decodeURIComponent(params.get("md") || "");
 
-      const FIELD_KEYS = new Set([
-        "Reminder Title:",
-        "Details:",
-        "Link:",
-        "List:",
-        "Tags:",
-        "Due Date:",
-        "Alerts:",
-        "Location:",
-        "Priority:",
-        "Flagged:",
-        "Completed:",
-        "Date Completed:",
-        "Parent Task:",
-        "Includes Subtasks:",
-        "Subtasks:",
-        "Images:",
-        "File Path:",
-        "File Type:",
-        "File Size:",
-        "Date Created:",
-        "Date Modified:",
-      ]);
+      // 2) parse & merge continuation lines
+      const lines = raw.split(/\r?\n/);
+      if (
+        lines.length >= 2 &&
+        lines[0].startsWith("|") &&
+        lines[1].startsWith("|")
+      ) {
+        const header = lines[0];
+        const separator = lines[1];
+        const rows = [];
+        let lastRow;
 
-      let lines = raw.split(/\r?\n/);
-      const idx = lines.findIndex((l) => /^\|\s*Details:\s*\|/.test(l));
-      if (idx !== -1) {
-        const mergedDetail = [];
-        let i = idx + 1;
-        for (; i < lines.length; i++) {
-          const m = lines[i].match(/^\|\s*(.*?)\s*\|/);
-          const key = m ? m[1].trim() : null;
-          if (key && FIELD_KEYS.has(key)) break;
-          const m2 = lines[i].match(/^\|\s*.*?\|\s*(.*?)(?:\||$)/);
-          if (m2) mergedDetail.push(m2[1].trim());
+        for (let i = 2; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.trim().startsWith("|")) {
+            // new row – parse key & value
+            const m = line.match(/^\|\s*([^|]+?)\s*\|\s*(.*?)\s*(?:\||$)/);
+            if (m) {
+              lastRow = { key: m[1].trim(), val: m[2] };
+              rows.push(lastRow);
+            }
+          } else if (lastRow && line.trim() !== "") {
+            // continuation line – append to lastRow.val
+            lastRow.val += "<br>" + line.trim();
+          }
         }
-        if (mergedDetail.length) {
-          lines[idx] =
-            lines[idx].replace(/\|\s*$/, "") +
-            "<br>" +
-            mergedDetail.join("<br>") +
-            " |";
-          lines.splice(idx + 1, mergedDetail.length);
+
+        // rebuild raw table text
+        let rebuilt = header + "\n" + separator + "\n";
+        for (const r of rows) {
+          rebuilt += `| ${r.key} | ${r.val} |\n`;
         }
+        raw = rebuilt;
+        console.log("🔄 rebuilt raw table:", raw);
       }
-      raw = lines.join("\n");
-      console.log("🔄 normalized input:", raw);
 
-      // —————————————————————————————————————————————
-      // 3) Format it
-      // —————————————————————————————————————————————
-
+      // 3) format it
       let formatted;
       try {
         formatted = window.formatTable(raw);
@@ -79,21 +58,12 @@
         formatted = "Error: " + err.message;
       }
 
-      // —————————————————————————————————————————————
-      // 4) Copy to clipboard (if allowed)
-      // —————————————————————————————————————————————
-
+      // 4) auto-copy to clipboard
       if (navigator.clipboard?.writeText) {
-        navigator.clipboard
-          .writeText(formatted)
-          .then(() => console.log("✅ Copied to clipboard"))
-          .catch((e) => console.warn("⚠️ Clipboard write failed", e));
+        navigator.clipboard.writeText(formatted).catch(() => {});
       }
 
-      // —————————————————————————————————————————————
-      // 5) Return to Shortcuts or render in browser
-      // —————————————————————————————————————————————
-
+      // 5) return to Shortcuts or show on-screen
       if (typeof completion === "function") {
         completion(formatted);
       } else {
