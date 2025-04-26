@@ -6,13 +6,18 @@
   </head>
   <body>
     <pre id="output">Loading…</pre>
+
+    <!-- 1) Your formatter bundle -->
     <script src="dist/table-formatter.js"></script>
+
     <script>
-      // 1) grab raw MD
+      // —————————————————————————————————————————————
+      // 2) Grab & normalize the raw table text
+      // —————————————————————————————————————————————
+
       const params = new URLSearchParams(location.search);
       let raw = decodeURIComponent(params.get("md") || "");
 
-      // 2) deterministic merge of Details block
       const FIELD_KEYS = new Set([
         "Reminder Title:",
         "Details:",
@@ -37,46 +42,65 @@
         "Date Modified:",
       ]);
 
-      // split into lines
       let lines = raw.split(/\r?\n/);
-
-      // find the index of the Details row
-      let idx = lines.findIndex((l) => /^\|\s*Details:\s*\|/.test(l));
+      const idx = lines.findIndex((l) => /^\|\s*Details:\s*\|/.test(l));
       if (idx !== -1) {
-        let mergedDetail = [];
-
-        // look ahead to collect all lines to merge
+        const mergedDetail = [];
         let i = idx + 1;
         for (; i < lines.length; i++) {
-          // extract first cell
-          let m = lines[i].match(/^\|\s*(.*?)\s*\|/);
-          let key = m ? m[1].trim() : null;
-          if (key && FIELD_KEYS.has(key)) {
-            // hit the next real header → stop merging
-            break;
-          }
-          // otherwise it’s a continuation line: grab its second cell
-          let m2 = lines[i].match(/^\|\s*.*?\|\s*(.*?)(?:\||$)/);
-          if (m2) {
-            mergedDetail.push(m2[1].trim());
-          }
+          const m = lines[i].match(/^\|\s*(.*?)\s*\|/);
+          const key = m ? m[1].trim() : null;
+          if (key && FIELD_KEYS.has(key)) break;
+          const m2 = lines[i].match(/^\|\s*.*?\|\s*(.*?)(?:\||$)/);
+          if (m2) mergedDetail.push(m2[1].trim());
         }
-
         if (mergedDetail.length) {
-          // append to the original Details line
-          // remove trailing '|' and whitespace
           lines[idx] =
             lines[idx].replace(/\|\s*$/, "") +
             "<br>" +
             mergedDetail.join("<br>") +
             " |";
-          // remove the merged lines from the array
           lines.splice(idx + 1, mergedDetail.length);
         }
       }
-
       raw = lines.join("\n");
       console.log("🔄 normalized input:", raw);
+
+      // —————————————————————————————————————————————
+      // 3) Format it
+      // —————————————————————————————————————————————
+
+      let formatted;
+      try {
+        formatted = window.formatTable(raw);
+        console.log("📤 formatted output:", formatted);
+      } catch (err) {
+        console.error("❌ formatting error:", err);
+        formatted = "Error: " + err.message;
+      }
+
+      // —————————————————————————————————————————————
+      // 4) Copy to clipboard (if allowed)
+      // —————————————————————————————————————————————
+
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard
+          .writeText(formatted)
+          .then(() => console.log("✅ Copied to clipboard"))
+          .catch((e) => console.warn("⚠️ Clipboard write failed", e));
+      }
+
+      // —————————————————————————————————————————————
+      // 5) Return to Shortcuts or render in browser
+      // —————————————————————————————————————————————
+
+      if (typeof completion === "function") {
+        completion(formatted);
+      } else {
+        const out = document.getElementById("output");
+        out.style.whiteSpace = "pre";
+        out.textContent = formatted;
+      }
     </script>
   </body>
 </html>
